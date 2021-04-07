@@ -181,6 +181,7 @@ def triangulate(C1, pts1, C2, pts2):
     err2 = np.linalg.norm(proj2[[0, 1]].T - pts2, axis=1)
     err2 = np.square(err2).sum()
     err = err1 + err2
+    # print(err)
 
     return Ps[:, :-1], err
 
@@ -238,85 +239,6 @@ def epipolarCorrespondence(im1, im2, F, x1, y1):
     np.savez('../results/q4_1.npz', F=F, pts1=points['pts1'], pts2=points['pts2'])
 
     return x2, y2
-
-
-def epipolarCorrespondence2(im1, im2, F, x1, y1):
-    # Replace pass by your implementation
-    pt1 = np.array([[x1], [y1], [1]])
-    data = np.load('../data/some_corresp.npz')
-    epiline = F.dot(pt1)
-    # print(epiline.shape)
-    a = epiline[0]
-    b = epiline[1]
-    c = epiline[2]
-    # ax+by+c = 0
-    # print(a,b,c)
-    H, W, channel = im1.shape
-    liney = np.arange(y1 - 30, y1 + 30)
-    # print(liney.shape)
-    # print(liney.shape)
-    linex = (-(b * liney + c) / a)
-    window = 5
-    # print(x1,y1)
-    im1g = ndimage.gaussian_filter(im1, sigma=1, output=np.float64)
-    im2g = ndimage.gaussian_filter(im2, sigma=1, output=np.float64)
-    # im1g = im1
-    # im2g = im2
-    # print(im1g.shape)
-    minerr = np.inf
-    res = 0
-    for i in range(60):
-        x2 = int(linex[i])
-        y2 = liney[i]
-        # print(x2,y2)
-        if (x2 >= window and x2 <= W - window - 1 and y2 >= window and y2 <= H - window - 1):
-            patch1 = im1g[y1 - window:y1 + window + 1, x1 - window:x1 + window + 1, :]
-            patch2 = im2g[y2 - window:y2 + window + 1, x2 - window:x2 + window + 1, :]
-            diff = (patch1 - patch2).flatten()
-            err = (np.sum(diff ** 2))
-            if (err < minerr):
-                minerr = err
-                res = i
-    if (os.path.isfile('q4_1.npz') == False):
-        np.savez('q4_1.npz', F=F, pts1=data['pts1'], pts2=data['pts2'])
-    return linex[res], liney[res]
-
-
-def triangulate2(C1, pts1, C2, pts2):
-    # Replace pass by your implementation
-
-    n, temp = pts1.shape
-    P = np.zeros((n, 3))
-    Phomo = np.zeros((n, 4))
-    for i in range(n):
-        x1 = pts1[i, 0]
-        y1 = pts1[i, 1]
-        x2 = pts2[i, 0]
-        y2 = pts2[i, 1]
-        A1 = x1 * C1[2, :] - C1[0, :]
-        A2 = y1 * C1[2, :] - C1[1, :]
-        A3 = x2 * C2[2, :] - C2[0, :]
-        A4 = y2 * C2[2, :] - C2[1, :]
-        A = np.vstack((A1, A2, A3, A4))
-        u, s, vh = np.linalg.svd(A)
-        p = vh[-1, :]
-        p = p / p[3]
-        P[i, :] = p[0:3]
-        Phomo[i, :] = p
-        # print(p)
-    p1_proj = np.matmul(C1, Phomo.T)
-    lam1 = p1_proj[-1, :]
-    p1_proj = p1_proj / lam1
-    p2_proj = np.matmul(C2, Phomo.T)
-    lam2 = p2_proj[-1, :]
-    p2_proj = p2_proj / lam2
-    err1 = np.sum((p1_proj[[0, 1], :].T - pts1) ** 2)
-    err2 = np.sum((p2_proj[[0, 1], :].T - pts2) ** 2)
-    err = err1 + err2
-    print(n)
-    print(err)
-
-    return P, err
 
 
 '''
@@ -395,14 +317,14 @@ def bundleAdjustment(K1, M1, p1, K2, M2_init, p2, P_init):
 
 
 if __name__ == '__main__':
-    im1 = plt.imread("../data/im1.png")
-    im2 = plt.imread("../data/im2.png")
-    points = np.load("../data/some_corresp.npz")
-    pts1 = points['pts1']
-    pts2 = points['pts2']
-    imheight, imwidth, _ = im1.shape
-    M = max(imheight, imwidth)
-    F = eightpoint(pts1, pts2, M)
+    # im1 = plt.imread("../data/im1.png")
+    # im2 = plt.imread("../data/im2.png")
+    # points = np.load("../data/some_corresp.npz")
+    # pts1 = points['pts1']
+    # pts2 = points['pts2']
+    # imheight, imwidth, _ = im1.shape
+    # M = max(imheight, imwidth)
+    # F = eightpoint(pts1, pts2, M)
     # N, _ = pts1.shape
     # index = np.random.randint(N, size=7)
     # seven_pts1 = pts1[index]
@@ -410,11 +332,11 @@ if __name__ == '__main__':
     # F = sevenpoint(seven_pts1, seven_pts2, M)
     # helper.displayEpipolarF(im1, im2, F[-1])
 
-    # f1 = np.load('../data/intrinsics.npz')
-    # K1 = f1['K1']
-    # K2 = f1['K2']
-    # f2 = np.load('../results/q2_1.npz')
-    # F = f2['F']
-    # E = essentialMatrix(F, K1, K2)
-    # print(E)
-    helper.epipolarMatchGUI(im1, im2, F)
+    f1 = np.load('../data/intrinsics.npz')
+    K1 = f1['K1']
+    K2 = f1['K2']
+    f2 = np.load('../results/q2_1.npz')
+    F = f2['F']
+    E = essentialMatrix(F, K1, K2)
+    print(E)
+    # helper.epipolarMatchGUI(im1, im2, F)

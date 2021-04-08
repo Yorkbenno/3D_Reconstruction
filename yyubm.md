@@ -117,3 +117,59 @@ We could see that the results are quiet good.
 ![](D:\Year3S\COMP5421\assignment\HW4_code_data\yyubm.assets\3.png)
 
 ![](D:\Year3S\COMP5421\assignment\HW4_code_data\yyubm.assets\4.png)
+
+
+
+## Problem 5.1. RANSAC
+
+-----
+
+If we just use the noisy data without the RANSAC technique, we get the result as below:
+
+![](D:\Year3S\COMP5421\assignment\HW4_code_data\yyubm.assets\Q5.1_1.png)
+
+We could see that this is pretty bad.
+
+After applying the RANSAC method, we got:
+
+![](D:\Year3S\COMP5421\assignment\HW4_code_data\yyubm.assets\Q5.1_2.png)
+
+Which is quiet good.
+
+The error matrix we used is based on the feature of fundamental matrix. which is:
+
+> x2.T @  F  @ x1 = 0 
+
+So we define err = abs(x2.T @ F @ x1) 
+
+The threshold is 0.001 and we believe it is small enough.
+
+So if the error is less than the threshold, we view it as inlier. After 100 iterations, we found the one with most inliers and use them to compute the F using eight point algorithm.
+
+
+
+## Problem 5.3. Bundle Adjustment
+
+----
+
+Without the bundle adjustment, we got the plotted figure as below:
+
+![](D:\Year3S\COMP5421\assignment\HW4_code_data\yyubm.assets\Q5.3withoutbundle.png)
+
+And the loss we get is:
+
+```python
+236.13011906108449
+```
+
+With the bundle adjustment, we got the plotted figure as below:
+
+![](D:\Year3S\COMP5421\assignment\HW4_code_data\yyubm.assets\Q5.3_withbundle.png)
+
+And the loss we get is:
+
+```python
+5.141451197864152
+```
+
+Which is much less.

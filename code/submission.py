@@ -8,6 +8,7 @@ import os
 import cv2
 import matplotlib.pyplot as plt
 import scipy.ndimage as ndimage
+import scipy.optimize as optimize
 
 '''
 Q2.1: Eight Point Algorithm
@@ -253,7 +254,45 @@ Q5.1: RANSAC method.
 
 def ransacF(pts1, pts2, M):
     # Replace pass by your implementation
-    pass
+    iter = 10
+    N, _ = pts1.shape
+    inliners = None
+    num_inliner = 0
+    p1_3D = np.hstack((pts1, np.ones((N, 1))))
+    p2_3D = np.hstack((pts2, np.ones((N, 1))))
+    threshold = 0.001
+
+    for i in range(iter):
+        index = np.random.randint(N, size=7)
+        points1 = pts1[index]
+        points2 = pts2[index]
+        Farray = sevenpoint(points1, points2, M)
+
+        for j in range(len(Farray)):
+            F = Farray[j]
+            inliner_candidate = []
+
+            for z in range(N):
+                p1 = p1_3D[z]
+                p2 = p2_3D[z]
+                error = p2 @ F @ p1.T
+                error = abs(error)
+                if error < threshold:
+                    inliner_candidate.append(z)
+
+            if len(inliner_candidate) > num_inliner:
+                num_inliner = len(inliner_candidate)
+                inliners = inliner_candidate
+
+    inliners1 = pts1[inliners]
+    inliners2 = pts2[inliners]
+
+    F = eightpoint(inliners1, inliners2, M)
+    result = np.zeros((N, 1)).astype(bool)
+    result[inliners] = True
+    inliers = result
+
+    return F, inliers
 
 
 '''
@@ -264,8 +303,17 @@ Q5.2: Rodrigues formula.
 
 
 def rodrigues(r):
-    # Replace pass by your implementation
-    pass
+    norm = np.linalg.norm(r)
+    if norm == 0:
+        return np.diag([1., 1., 1.])
+    K = r / norm
+    kx = K[0]
+    ky = K[1]
+    kz = K[2]
+    kc = np.vstack(([0, -kz, ky], [kz, 0, -kx], [-ky, kx, 0]))
+    R = np.diag([1., 1., 1.]) * np.cos(norm) + (1 - np.cos(norm)) * K @ K.T + np.sin(norm) * kc
+
+    return R
 
 
 '''
@@ -276,8 +324,31 @@ Q5.2: Inverse Rodrigues formula.
 
 
 def invRodrigues(R):
-    # Replace pass by your implementation
-    pass
+    A = (R - R.T) / 2
+    rho = np.array([A[2, 1], A[0, 2], A[1, 0]]).T
+    s = np.linalg.norm(rho)
+    c = (np.diag(R).sum() - 1) / 2
+    if s == 0 and c == 1:
+        return np.zeros((3, 1))
+    elif s == 0 and c == -1:
+        matrix = R + np.eye(3)
+        i = 0
+        while np.linalg.norm(matrix[:, i]) == 0:
+            i += 1
+        v = matrix[:, i]
+        u = v / np.linalg.norm(v)
+        r = u * np.pi
+        r1 = r[0]
+        r2 = r[1]
+        r3 = r[2]
+        if (r1 == 0 and r2 == 0 and r3 < 0) or (r1 == 0 and r2 < 0) or (r1 < 0):
+            r = -1 * r
+        return r
+    else:
+        u = rho / s
+        theta = np.arctan2(s, c)
+        r = u * theta
+        return r
 
 
 '''
@@ -294,7 +365,29 @@ Q5.3: Rodrigues residual.
 
 def rodriguesResidual(K1, M1, p1, K2, p2, x):
     # Replace pass by your implementation
-    pass
+    C1 = K1 @ M1
+    # Don't have M2, so find it
+    N, _ = p1.shape
+    Points_3D = x[:3 * N]
+    Points_3D = Points_3D.reshape((N, 3))
+    homo_points = np.hstack((Points_3D, np.ones((N, 1))))
+    # We need the rotation and translation matrix
+    r2 = x[3 * N: 3 * N + 3].reshape((3, 1))
+    R2 = rodrigues(r2)
+    t2 = x[3 * N + 3: 3 * N + 6].reshape((3, 1))
+    M2 = np.hstack((R2, t2))
+    C2 = K2 @ M2
+    # Find the projection error
+    proj1 = C1 @ homo_points.T
+    proj2 = C2 @ homo_points.T
+    proj1 = proj1 / proj1[2]
+    proj2 = proj2 / proj2[2]
+    # According to the naming strategy given by the pdf instructions
+    p1_hat = proj1[:-1].T
+    p2_hat = proj2[:-1].T
+    residuals = np.concatenate([(p1 - p1_hat).reshape([-1]), (p2 - p2_hat).reshape([-1])]).reshape((4 * N, 1))
+
+    return residuals
 
 
 '''
@@ -313,30 +406,50 @@ Q5.3 Bundle adjustment.
 
 def bundleAdjustment(K1, M1, p1, K2, M2_init, p2, P_init):
     # Replace pass by your implementation
-    pass
+    def fun(x):
+        return rodriguesResidual(K1, M1, p1, K2, p2, x).flatten().astype(float)
+
+    N, _ = p1.shape
+    points_3D = P_init.flatten()
+    R2_init = M2_init[:, :3]
+    r2_init = invRodrigues(R2_init).flatten()
+    t2_init = M2_init[:, 3].flatten()
+
+    x_init = np.concatenate((points_3D, r2_init, t2_init))
+    x, temp = optimize.leastsq(fun, x_init)
+    print(np.sum(fun(x) ** 2))
+    P2 = x[:3 * N].reshape((N, 3))
+    r2 = x[3 * N:3 * N + 3].reshape((3, 1))
+    t2 = x[3 * N + 3:].reshape((3, 1))
+    R2 = rodrigues(r2)
+    M2 = np.hstack((R2, t2))
+
+    return M2, P2
 
 
 if __name__ == '__main__':
-    # im1 = plt.imread("../data/im1.png")
-    # im2 = plt.imread("../data/im2.png")
-    # points = np.load("../data/some_corresp.npz")
-    # pts1 = points['pts1']
-    # pts2 = points['pts2']
-    # imheight, imwidth, _ = im1.shape
-    # M = max(imheight, imwidth)
+    im1 = plt.imread("../data/im1.png")
+    im2 = plt.imread("../data/im2.png")
+    points = np.load("../data/some_corresp_noisy.npz")
+    pts1 = points['pts1']
+    pts2 = points['pts2']
+    imheight, imwidth, _ = im1.shape
+    M = max(imheight, imwidth)
     # F = eightpoint(pts1, pts2, M)
     # N, _ = pts1.shape
+    F, inliers = ransacF(pts1, pts2, M)
     # index = np.random.randint(N, size=7)
     # seven_pts1 = pts1[index]
     # seven_pts2 = pts2[index]
     # F = sevenpoint(seven_pts1, seven_pts2, M)
-    # helper.displayEpipolarF(im1, im2, F[-1])
+    print(F)
+    helper.displayEpipolarF(im1, im2, F)
 
-    f1 = np.load('../data/intrinsics.npz')
-    K1 = f1['K1']
-    K2 = f1['K2']
-    f2 = np.load('../results/q2_1.npz')
-    F = f2['F']
-    E = essentialMatrix(F, K1, K2)
-    print(E)
+    # f1 = np.load('../data/intrinsics.npz')
+    # K1 = f1['K1']
+    # K2 = f1['K2']
+    # f2 = np.load('../results/q2_1.npz')
+    # F = f2['F']
+    # E = essentialMatrix(F, K1, K2)
+    # print(E)
     # helper.epipolarMatchGUI(im1, im2, F)

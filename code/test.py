@@ -1,8 +1,8 @@
 import numpy as np
 
 if __name__ == '__main__':
-    a = np.load('../results/q2_1.npz')['F']
-    for i in range(3, 5):
-        print(i)
-    # print(a)
-    # print(arr[[1, 2]])
+    result = [False] * 7
+    result = np.array(result)
+    result[[2, 4, 5]] = True
+    a = np.concatenate((np.zeros(3), np.ones(4)))
+    print(a[result])

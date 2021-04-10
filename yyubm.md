@@ -159,7 +159,7 @@ Without the bundle adjustment, we got the plotted figure as below:
 And the loss we get is:
 
 ```python
-236.13011906108449
+67.45223569152305
 ```
 
 With the bundle adjustment, we got the plotted figure as below:
@@ -169,7 +169,7 @@ With the bundle adjustment, we got the plotted figure as below:
 And the loss we get is:
 
 ```python
-5.141451197864152
+7.2708659198453365
 ```
 
 Which is much less.
